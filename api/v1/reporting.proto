@@ -1,0 +1,19 @@
+syntax = "proto3";
+package reportingapi.solo.io;
+option go_package = "v1";
+
+message Usage {
+    string product = 1;
+    string version = 2;
+    string arch = 3;
+    string os = 4;
+
+    map<string, string> usage = 5;
+}
+
+message UsageResponse {
+}
+
+service ReportingService {
+    rpc ReportUsage(Usage) returns (UsageResponse) {}
+}
