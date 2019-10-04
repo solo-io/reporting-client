@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/solo-io/go-utils/errors"
+
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -39,6 +41,12 @@ var _ = Describe("Reporting client", func() {
 			Arch:    "test-arch",
 			Os:      "test-os",
 		}
+		testErr                = errors.New("test-err")
+		ctx                    context.Context
+		cancelFunc             context.CancelFunc
+		pollInterval           = time.Millisecond * 50
+		timeoutForEventually   = time.Second
+		timeoutForConsistently = time.Millisecond * 500
 	)
 
 	var buildPayloadGetter = func(payload map[string]string) UsagePayloadReader {
@@ -60,14 +68,18 @@ var _ = Describe("Reporting client", func() {
 	BeforeEach(func() {
 		ctrl = gomock.NewController(GinkgoT())
 		reportingServiceClient = mocks.NewMockReportingServiceClient(ctrl)
+		ctx, cancelFunc = context.WithCancel(context.TODO())
 	})
 
 	AfterEach(func() {
 		ctrl.Finish()
+		cancelFunc()
 	})
 
 	It("can report usage", func() {
-		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, &testClientBuilder{client: reportingServiceClient})
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, error) {
+			return reportingServiceClient, nil
+		})
 
 		request := &v1.UsageRequest{
 			InstanceMetadata: instanceMetadata,
@@ -76,13 +88,36 @@ var _ = Describe("Reporting client", func() {
 		reportChannel := make(chan *v1.UsageRequest)
 
 		reportingServiceClient.EXPECT().
-			ReportUsage(context.TODO(), request).
+			ReportUsage(ctx, request).
 			DoAndReturn(requestSender(reportChannel)).
 			AnyTimes()
 
-		usageClient.StartReportingUsage(context.TODO(), time.Millisecond*500)
+		errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*500)
 
-		Eventually(reportChannel, time.Second*2, time.Millisecond*500).Should(Receive(Equal(request)))
+		Eventually(reportChannel, timeoutForEventually, pollInterval).Should(Receive(Equal(request)))
+		Consistently(errorChan, timeoutForConsistently, pollInterval).ShouldNot(Receive())
+	})
+
+	It("reports an error on the channel if the server is unreachable", func() {
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, error) {
+			return reportingServiceClient, nil
+		})
+
+		request := &v1.UsageRequest{
+			InstanceMetadata: instanceMetadata,
+			Payload:          map[string]string{},
+		}
+		reportChannel := make(chan *v1.UsageRequest)
+
+		reportingServiceClient.EXPECT().
+			ReportUsage(ctx, request).
+			Return(nil, testErr).
+			AnyTimes()
+
+		errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*10)
+
+		Consistently(reportChannel, timeoutForConsistently, pollInterval).ShouldNot(Receive())
+		Consistently(errorChan, timeoutForConsistently, pollInterval).Should(Receive(Equal(ErrorSendingUsage(testErr))), "Should receive errors on the channel")
 	})
 
 	Context("when usage is disabled", func() {
@@ -96,11 +131,14 @@ var _ = Describe("Reporting client", func() {
 		It("does not report usage", func() {
 			reportChannel := make(chan *v1.UsageRequest)
 
-			usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, &testClientBuilder{client: reportingServiceClient})
+			usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, error) {
+				return reportingServiceClient, nil
+			})
 
-			usageClient.StartReportingUsage(context.TODO(), time.Millisecond*100)
+			errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*100)
 
-			Consistently(reportChannel, time.Second, time.Millisecond*50).ShouldNot(Receive())
+			Consistently(reportChannel, timeoutForConsistently, pollInterval).ShouldNot(Receive())
+			Consistently(errorChan, timeoutForConsistently, pollInterval).ShouldNot(Receive())
 		})
 	})
 })

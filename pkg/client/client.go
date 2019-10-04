@@ -5,14 +5,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/solo-io/go-utils/contextutils"
 	api "github.com/solo-io/reporting-client/pkg/api/v1"
 	"google.golang.org/grpc"
 )
 
 const (
 	// set this env var to the string "true" to prevent usage from being reported
-	DisableUsageVar = "USAGE_REPORTING_DISABLE"
+	DisableUsageVar  = "USAGE_REPORTING_DISABLE"
+	errorSendTimeout = time.Second * 10
 )
 
 // a type that knows how to load the usage payload you want to report
@@ -20,31 +20,25 @@ type UsagePayloadReader interface {
 	GetPayload() (map[string]string, error)
 }
 
-type ReportingServiceClientBuilder interface {
-	BuildClient() (api.ReportingServiceClient, error)
-}
+type ReportingServiceClientBuilder func() (api.ReportingServiceClient, error)
 
-type defaultReportingServiceClientBuilder struct {
-	url string
-}
+var defaultReportingServiceClientBuilder = func(url string) ReportingServiceClientBuilder {
+	return func() (api.ReportingServiceClient, error) {
+		clientConn, err := grpc.Dial(url, grpc.WithInsecure())
+		if err != nil {
+			return nil, err
+		}
 
-var _ ReportingServiceClientBuilder = &defaultReportingServiceClientBuilder{}
-
-func (d *defaultReportingServiceClientBuilder) BuildClient() (api.ReportingServiceClient, error) {
-	clientConn, err := grpc.Dial(d.url, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
+		client := api.NewReportingServiceClient(clientConn)
+		return client, nil
 	}
-
-	client := api.NewReportingServiceClient(clientConn)
-	return client, nil
 }
 
 //go:generate mockgen -destination mocks/mock_usage_payload_reader.go -package mocks github.com/solo-io/reporting-client/pkg/client UsagePayloadReader
 //go:generate mockgen -destination mocks/mock_reporting_service_client.go -package mocks github.com/solo-io/reporting-client/pkg/api/v1 ReportingServiceClient
 
 type Client interface {
-	StartReportingUsage(ctx context.Context, interval time.Duration)
+	StartReportingUsage(ctx context.Context, interval time.Duration) <-chan error
 }
 
 type client struct {
@@ -59,7 +53,7 @@ func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader
 	return newUsageClient(
 		usagePayloadReader,
 		instanceMetadata,
-		&defaultReportingServiceClientBuilder{url: usageServerUrl},
+		defaultReportingServiceClientBuilder(usageServerUrl),
 	)
 }
 
@@ -76,9 +70,11 @@ func newUsageClient(
 	}
 }
 
-func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) {
+func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) <-chan error {
+	errorChan := make(chan error)
 	if os.Getenv(DisableUsageVar) == "true" {
-		return
+		close(errorChan)
+		return errorChan
 	}
 
 	ticker := time.NewTicker(interval)
@@ -88,13 +84,13 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 			case <-ticker.C:
 				payload, err := c.usagePayloadReader.GetPayload()
 				if err != nil {
-					contextutils.LoggerFrom(ctx).Errorf("Encountered error while reading payload: %s", err.Error())
+					sendWithTimeout(errorChan, ErrorReadingPayload(err))
 					continue
 				}
 
-				client, err := c.usageClientBuilder.BuildClient()
+				client, err := c.usageClientBuilder()
 				if err != nil {
-					contextutils.LoggerFrom(ctx).Errorf("Encountered error while connecting to the grpc server: %s", err.Error())
+					sendWithTimeout(errorChan, ErrorConnecting(err))
 					continue
 				}
 				_, err = client.ReportUsage(ctx, &api.UsageRequest{
@@ -102,11 +98,23 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 					Payload:          payload,
 				})
 				if err != nil {
-					contextutils.LoggerFrom(ctx).Errorf("Encountered error while reporting usage: %s", err.Error())
+					sendWithTimeout(errorChan, ErrorSendingUsage(err))
 				}
 			case <-ctx.Done():
+				close(errorChan)
 				return
 			}
 		}
 	}()
+
+	return errorChan
+}
+
+// we don't want to block this whole goroutine if no one is listening for errors,
+// so if a receiver isn't ready after the timeout, give up and continue
+func sendWithTimeout(errorChan chan<- error, err error) {
+	select {
+	case errorChan <- err:
+	case <-time.After(errorSendTimeout):
+	}
 }
