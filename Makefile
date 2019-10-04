@@ -6,5 +6,6 @@ SUBDIRS:=api
 .PHONY: generated-code
 generated-code:
 	protoc api/v1/reporting.proto --go_out=plugins=grpc:./pkg
+	go generate ./...
 	gofmt -w $(SUBDIRS)
 	goimports -w $(SUBDIRS)

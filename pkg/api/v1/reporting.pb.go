@@ -6,11 +6,12 @@ package v1
 import (
 	context "context"
 	fmt "fmt"
+	math "math"
+
 	proto "github.com/golang/protobuf/proto"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
-	math "math"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -24,73 +25,114 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type Usage struct {
-	Product              string            `protobuf:"bytes,1,opt,name=product,proto3" json:"product,omitempty"`
-	Version              string            `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
-	Arch                 string            `protobuf:"bytes,3,opt,name=arch,proto3" json:"arch,omitempty"`
-	Os                   string            `protobuf:"bytes,4,opt,name=os,proto3" json:"os,omitempty"`
-	Usage                map[string]string `protobuf:"bytes,5,rep,name=usage,proto3" json:"usage,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
-	XXX_unrecognized     []byte            `json:"-"`
-	XXX_sizecache        int32             `json:"-"`
+// information that every reporting source should include
+type InstanceMetadata struct {
+	Product              string   `protobuf:"bytes,1,opt,name=product,proto3" json:"product,omitempty"`
+	Version              string   `protobuf:"bytes,2,opt,name=version,proto3" json:"version,omitempty"`
+	Arch                 string   `protobuf:"bytes,3,opt,name=arch,proto3" json:"arch,omitempty"`
+	Os                   string   `protobuf:"bytes,4,opt,name=os,proto3" json:"os,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *Usage) Reset()         { *m = Usage{} }
-func (m *Usage) String() string { return proto.CompactTextString(m) }
-func (*Usage) ProtoMessage()    {}
-func (*Usage) Descriptor() ([]byte, []int) {
+func (m *InstanceMetadata) Reset()         { *m = InstanceMetadata{} }
+func (m *InstanceMetadata) String() string { return proto.CompactTextString(m) }
+func (*InstanceMetadata) ProtoMessage()    {}
+func (*InstanceMetadata) Descriptor() ([]byte, []int) {
 	return fileDescriptor_9df4dc8e97d3e9ee, []int{0}
 }
 
-func (m *Usage) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Usage.Unmarshal(m, b)
+func (m *InstanceMetadata) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_InstanceMetadata.Unmarshal(m, b)
 }
-func (m *Usage) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Usage.Marshal(b, m, deterministic)
+func (m *InstanceMetadata) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_InstanceMetadata.Marshal(b, m, deterministic)
 }
-func (m *Usage) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Usage.Merge(m, src)
+func (m *InstanceMetadata) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_InstanceMetadata.Merge(m, src)
 }
-func (m *Usage) XXX_Size() int {
-	return xxx_messageInfo_Usage.Size(m)
+func (m *InstanceMetadata) XXX_Size() int {
+	return xxx_messageInfo_InstanceMetadata.Size(m)
 }
-func (m *Usage) XXX_DiscardUnknown() {
-	xxx_messageInfo_Usage.DiscardUnknown(m)
+func (m *InstanceMetadata) XXX_DiscardUnknown() {
+	xxx_messageInfo_InstanceMetadata.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_Usage proto.InternalMessageInfo
+var xxx_messageInfo_InstanceMetadata proto.InternalMessageInfo
 
-func (m *Usage) GetProduct() string {
+func (m *InstanceMetadata) GetProduct() string {
 	if m != nil {
 		return m.Product
 	}
 	return ""
 }
 
-func (m *Usage) GetVersion() string {
+func (m *InstanceMetadata) GetVersion() string {
 	if m != nil {
 		return m.Version
 	}
 	return ""
 }
 
-func (m *Usage) GetArch() string {
+func (m *InstanceMetadata) GetArch() string {
 	if m != nil {
 		return m.Arch
 	}
 	return ""
 }
 
-func (m *Usage) GetOs() string {
+func (m *InstanceMetadata) GetOs() string {
 	if m != nil {
 		return m.Os
 	}
 	return ""
 }
 
-func (m *Usage) GetUsage() map[string]string {
+type UsageRequest struct {
+	InstanceMetadata *InstanceMetadata `protobuf:"bytes,1,opt,name=instance_metadata,json=instanceMetadata,proto3" json:"instance_metadata,omitempty"`
+	// arbitrary key/value pairs - each reporting source can choose what to include here
+	Payload              map[string]string `protobuf:"bytes,2,rep,name=payload,proto3" json:"payload,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	XXX_NoUnkeyedLiteral struct{}          `json:"-"`
+	XXX_unrecognized     []byte            `json:"-"`
+	XXX_sizecache        int32             `json:"-"`
+}
+
+func (m *UsageRequest) Reset()         { *m = UsageRequest{} }
+func (m *UsageRequest) String() string { return proto.CompactTextString(m) }
+func (*UsageRequest) ProtoMessage()    {}
+func (*UsageRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_9df4dc8e97d3e9ee, []int{1}
+}
+
+func (m *UsageRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_UsageRequest.Unmarshal(m, b)
+}
+func (m *UsageRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_UsageRequest.Marshal(b, m, deterministic)
+}
+func (m *UsageRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_UsageRequest.Merge(m, src)
+}
+func (m *UsageRequest) XXX_Size() int {
+	return xxx_messageInfo_UsageRequest.Size(m)
+}
+func (m *UsageRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_UsageRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_UsageRequest proto.InternalMessageInfo
+
+func (m *UsageRequest) GetInstanceMetadata() *InstanceMetadata {
 	if m != nil {
-		return m.Usage
+		return m.InstanceMetadata
+	}
+	return nil
+}
+
+func (m *UsageRequest) GetPayload() map[string]string {
+	if m != nil {
+		return m.Payload
 	}
 	return nil
 }
@@ -105,7 +147,7 @@ func (m *UsageResponse) Reset()         { *m = UsageResponse{} }
 func (m *UsageResponse) String() string { return proto.CompactTextString(m) }
 func (*UsageResponse) ProtoMessage()    {}
 func (*UsageResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_9df4dc8e97d3e9ee, []int{1}
+	return fileDescriptor_9df4dc8e97d3e9ee, []int{2}
 }
 
 func (m *UsageResponse) XXX_Unmarshal(b []byte) error {
@@ -127,31 +169,35 @@ func (m *UsageResponse) XXX_DiscardUnknown() {
 var xxx_messageInfo_UsageResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*Usage)(nil), "reportingapi.solo.io.Usage")
-	proto.RegisterMapType((map[string]string)(nil), "reportingapi.solo.io.Usage.UsageEntry")
+	proto.RegisterType((*InstanceMetadata)(nil), "reportingapi.solo.io.InstanceMetadata")
+	proto.RegisterType((*UsageRequest)(nil), "reportingapi.solo.io.UsageRequest")
+	proto.RegisterMapType((map[string]string)(nil), "reportingapi.solo.io.UsageRequest.PayloadEntry")
 	proto.RegisterType((*UsageResponse)(nil), "reportingapi.solo.io.UsageResponse")
 }
 
 func init() { proto.RegisterFile("api/v1/reporting.proto", fileDescriptor_9df4dc8e97d3e9ee) }
 
 var fileDescriptor_9df4dc8e97d3e9ee = []byte{
-	// 253 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x90, 0x41, 0x4b, 0xc3, 0x40,
-	0x10, 0x85, 0xcd, 0x26, 0x51, 0x9c, 0xa2, 0x96, 0xa5, 0xc8, 0x52, 0x2f, 0x25, 0x82, 0xf4, 0xb4,
-	0xa5, 0xf5, 0x52, 0xc4, 0x93, 0xe0, 0x0f, 0x30, 0xe2, 0xc5, 0xdb, 0x1a, 0x87, 0xba, 0x58, 0x32,
-	0xcb, 0x6e, 0xb2, 0xd0, 0x5f, 0xea, 0xdf, 0x91, 0xec, 0x26, 0x7a, 0x29, 0xb9, 0x0c, 0xf3, 0xde,
-	0x63, 0x78, 0x1f, 0x03, 0xd7, 0xca, 0xe8, 0x95, 0x5f, 0xaf, 0x2c, 0x1a, 0xb2, 0x8d, 0xae, 0x77,
-	0xd2, 0x58, 0x6a, 0x88, 0xcf, 0xfe, 0x0c, 0x65, 0xb4, 0x74, 0xb4, 0x27, 0xa9, 0xa9, 0xf8, 0x49,
-	0x20, 0x7f, 0x73, 0x6a, 0x87, 0x5c, 0xc0, 0x99, 0xb1, 0xf4, 0xd9, 0x56, 0x8d, 0x48, 0x16, 0xc9,
-	0xf2, 0xbc, 0x1c, 0x64, 0x97, 0x78, 0xb4, 0x4e, 0x53, 0x2d, 0x58, 0x4c, 0x7a, 0xc9, 0x39, 0x64,
-	0xca, 0x56, 0x5f, 0x22, 0x0d, 0x76, 0xd8, 0xf9, 0x25, 0x30, 0x72, 0x22, 0x0b, 0x0e, 0x23, 0xc7,
-	0x1f, 0x21, 0x6f, 0xbb, 0x02, 0x91, 0x2f, 0xd2, 0xe5, 0x64, 0x73, 0x27, 0x8f, 0x71, 0xc8, 0xc0,
-	0x10, 0xe7, 0x73, 0xdd, 0xd8, 0x43, 0x19, 0x8f, 0xe6, 0x5b, 0x80, 0x7f, 0x93, 0x4f, 0x21, 0xfd,
-	0xc6, 0x43, 0xcf, 0xd7, 0xad, 0x7c, 0x06, 0xb9, 0x57, 0xfb, 0x16, 0x7b, 0xb2, 0x28, 0x1e, 0xd8,
-	0x36, 0x29, 0xae, 0xe0, 0x22, 0x5c, 0x96, 0xe8, 0x0c, 0xd5, 0x0e, 0x37, 0x08, 0xd3, 0x72, 0xa8,
-	0x7e, 0x45, 0xeb, 0x75, 0x85, 0xfc, 0x05, 0x26, 0xd1, 0x8b, 0x3f, 0xb8, 0x19, 0x81, 0x9b, 0xdf,
-	0x8e, 0x84, 0x43, 0x49, 0x71, 0xf2, 0x94, 0xbd, 0x33, 0xbf, 0xfe, 0x38, 0x0d, 0x4f, 0xbf, 0xff,
-	0x0d, 0x00, 0x00, 0xff, 0xff, 0x74, 0x74, 0x59, 0x7d, 0x8e, 0x01, 0x00, 0x00,
+	// 303 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x91, 0x41, 0x4b, 0x03, 0x31,
+	0x10, 0x85, 0xdd, 0x6d, 0xb5, 0x38, 0xad, 0xba, 0x86, 0x22, 0x4b, 0x4f, 0x65, 0x05, 0xe9, 0x29,
+	0xa5, 0xf5, 0x22, 0x3d, 0x0a, 0x1e, 0x7a, 0x10, 0x64, 0x8b, 0x20, 0x5e, 0x24, 0x6e, 0x87, 0x1a,
+	0x5d, 0x33, 0x31, 0x49, 0x17, 0xfa, 0x97, 0xfd, 0x15, 0xd2, 0x6c, 0x2a, 0xa5, 0x14, 0xbd, 0xcd,
+	0xbc, 0x37, 0x93, 0xf7, 0x31, 0x81, 0x0b, 0xa1, 0xe5, 0xb0, 0x1a, 0x0d, 0x0d, 0x6a, 0x32, 0x4e,
+	0xaa, 0x05, 0xd7, 0x86, 0x1c, 0xb1, 0xee, 0xaf, 0x20, 0xb4, 0xe4, 0x96, 0x4a, 0xe2, 0x92, 0xb2,
+	0x77, 0x48, 0xa6, 0xca, 0x3a, 0xa1, 0x0a, 0xbc, 0x47, 0x27, 0xe6, 0xc2, 0x09, 0x96, 0x42, 0x4b,
+	0x1b, 0x9a, 0x2f, 0x0b, 0x97, 0x46, 0xfd, 0x68, 0x70, 0x9c, 0x6f, 0xda, 0xb5, 0x53, 0xa1, 0xb1,
+	0x92, 0x54, 0x1a, 0xd7, 0x4e, 0x68, 0x19, 0x83, 0xa6, 0x30, 0xc5, 0x5b, 0xda, 0xf0, 0xb2, 0xaf,
+	0xd9, 0x29, 0xc4, 0x64, 0xd3, 0xa6, 0x57, 0x62, 0xb2, 0xd9, 0x77, 0x04, 0x9d, 0x47, 0x2b, 0x16,
+	0x98, 0xe3, 0xd7, 0x12, 0xad, 0x63, 0x33, 0x38, 0x97, 0x21, 0xfc, 0xe5, 0x33, 0xa4, 0xfb, 0xc8,
+	0xf6, 0xf8, 0x8a, 0xef, 0xc3, 0xe5, 0xbb, 0xac, 0x79, 0x22, 0x77, 0xe9, 0xa7, 0xd0, 0xd2, 0x62,
+	0x55, 0x92, 0x98, 0xa7, 0x71, 0xbf, 0x31, 0x68, 0x8f, 0x87, 0xfb, 0x9f, 0xda, 0x26, 0xe1, 0x0f,
+	0xf5, 0xc6, 0x9d, 0x72, 0x66, 0x95, 0x6f, 0xf6, 0x7b, 0x13, 0xe8, 0x6c, 0x1b, 0x2c, 0x81, 0xc6,
+	0x07, 0xae, 0xc2, 0x51, 0xd6, 0x25, 0xeb, 0xc2, 0x61, 0x25, 0xca, 0x25, 0x86, 0x73, 0xd4, 0xcd,
+	0x24, 0xbe, 0x89, 0xb2, 0x33, 0x38, 0x09, 0x09, 0x56, 0x93, 0xb2, 0x38, 0x2e, 0x21, 0xc9, 0x37,
+	0x1c, 0x33, 0x34, 0x95, 0x2c, 0x90, 0x3d, 0x41, 0xbb, 0xd6, 0xfc, 0x28, 0xcb, 0xfe, 0x27, 0xed,
+	0x5d, 0xfe, 0x39, 0x53, 0x67, 0x65, 0x07, 0xb7, 0xcd, 0xe7, 0xb8, 0x1a, 0xbd, 0x1e, 0xf9, 0xaf,
+	0xbf, 0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0xce, 0xca, 0x55, 0x62, 0x14, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -166,7 +212,7 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ReportingServiceClient interface {
-	ReportUsage(ctx context.Context, in *Usage, opts ...grpc.CallOption) (*UsageResponse, error)
+	ReportUsage(ctx context.Context, in *UsageRequest, opts ...grpc.CallOption) (*UsageResponse, error)
 }
 
 type reportingServiceClient struct {
@@ -177,7 +223,7 @@ func NewReportingServiceClient(cc *grpc.ClientConn) ReportingServiceClient {
 	return &reportingServiceClient{cc}
 }
 
-func (c *reportingServiceClient) ReportUsage(ctx context.Context, in *Usage, opts ...grpc.CallOption) (*UsageResponse, error) {
+func (c *reportingServiceClient) ReportUsage(ctx context.Context, in *UsageRequest, opts ...grpc.CallOption) (*UsageResponse, error) {
 	out := new(UsageResponse)
 	err := c.cc.Invoke(ctx, "/reportingapi.solo.io.ReportingService/ReportUsage", in, out, opts...)
 	if err != nil {
@@ -188,14 +234,14 @@ func (c *reportingServiceClient) ReportUsage(ctx context.Context, in *Usage, opt
 
 // ReportingServiceServer is the server API for ReportingService service.
 type ReportingServiceServer interface {
-	ReportUsage(context.Context, *Usage) (*UsageResponse, error)
+	ReportUsage(context.Context, *UsageRequest) (*UsageResponse, error)
 }
 
 // UnimplementedReportingServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedReportingServiceServer struct {
 }
 
-func (*UnimplementedReportingServiceServer) ReportUsage(ctx context.Context, req *Usage) (*UsageResponse, error) {
+func (*UnimplementedReportingServiceServer) ReportUsage(ctx context.Context, req *UsageRequest) (*UsageResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ReportUsage not implemented")
 }
 
@@ -204,7 +250,7 @@ func RegisterReportingServiceServer(s *grpc.Server, srv ReportingServiceServer) 
 }
 
 func _ReportingService_ReportUsage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Usage)
+	in := new(UsageRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
@@ -216,7 +262,7 @@ func _ReportingService_ReportUsage_Handler(srv interface{}, ctx context.Context,
 		FullMethod: "/reportingapi.solo.io.ReportingService/ReportUsage",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ReportingServiceServer).ReportUsage(ctx, req.(*Usage))
+		return srv.(ReportingServiceServer).ReportUsage(ctx, req.(*UsageRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
