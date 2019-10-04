@@ -67,8 +67,7 @@ var _ = Describe("Reporting client", func() {
 	})
 
 	It("can report usage", func() {
-		usageClient, err := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, &testClientBuilder{client: reportingServiceClient})
-		Expect(err).NotTo(HaveOccurred())
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, &testClientBuilder{client: reportingServiceClient})
 
 		request := &v1.UsageRequest{
 			InstanceMetadata: instanceMetadata,
@@ -97,8 +96,7 @@ var _ = Describe("Reporting client", func() {
 		It("does not report usage", func() {
 			reportChannel := make(chan *v1.UsageRequest)
 
-			usageClient, err := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, &testClientBuilder{client: reportingServiceClient})
-			Expect(err).NotTo(HaveOccurred())
+			usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, &testClientBuilder{client: reportingServiceClient})
 
 			usageClient.StartReportingUsage(context.TODO(), time.Millisecond*100)
 

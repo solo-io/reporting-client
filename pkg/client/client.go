@@ -55,9 +55,7 @@ type client struct {
 
 var _ Client = &client{}
 
-// initializes a connection to the grpc server
-// returns an error if it is unable to dial the server
-func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, instanceMetadata *api.InstanceMetadata) (*client, error) {
+func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, instanceMetadata *api.InstanceMetadata) *client {
 	return newUsageClient(
 		usagePayloadReader,
 		instanceMetadata,
@@ -70,12 +68,12 @@ func newUsageClient(
 	usagePayloadReader UsagePayloadReader,
 	instanceMetadata *api.InstanceMetadata,
 	reportingServiceClientBuilder ReportingServiceClientBuilder,
-) (*client, error) {
+) *client {
 	return &client{
 		usagePayloadReader: usagePayloadReader,
 		usageClientBuilder: reportingServiceClientBuilder,
 		metadata:           instanceMetadata,
-	}, nil
+	}
 }
 
 func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) {
