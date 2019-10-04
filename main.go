@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"time"
+
 	v1 "github.com/solo-io/reporting-client/pkg/api/v1"
 	"github.com/solo-io/reporting-client/pkg/client"
-	"time"
 )
 
 type testPayloadReader struct {

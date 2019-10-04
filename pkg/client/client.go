@@ -20,16 +20,36 @@ type UsagePayloadReader interface {
 	GetPayload() (map[string]string, error)
 }
 
+type ReportingServiceClientBuilder interface {
+	BuildClient() (api.ReportingServiceClient, error)
+}
+
+type defaultReportingServiceClientBuilder struct {
+	url string
+}
+
+var _ ReportingServiceClientBuilder = &defaultReportingServiceClientBuilder{}
+
+func (d *defaultReportingServiceClientBuilder) BuildClient() (api.ReportingServiceClient, error) {
+	clientConn, err := grpc.Dial(d.url, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+
+	client := api.NewReportingServiceClient(clientConn)
+	return client, nil
+}
+
 //go:generate mockgen -destination mocks/mock_usage_payload_reader.go -package mocks github.com/solo-io/reporting-client/pkg/client UsagePayloadReader
 //go:generate mockgen -destination mocks/mock_reporting_service_client.go -package mocks github.com/solo-io/reporting-client/pkg/api/v1 ReportingServiceClient
 
 type Client interface {
-	StartReportingUsage(ctx context.Context, interval time.Duration) context.CancelFunc
+	StartReportingUsage(ctx context.Context, interval time.Duration)
 }
 
 type client struct {
 	usagePayloadReader UsagePayloadReader
-	usageClient        api.ReportingServiceClient
+	usageClientBuilder ReportingServiceClientBuilder
 	metadata           *api.InstanceMetadata
 }
 
@@ -38,15 +58,10 @@ var _ Client = &client{}
 // initializes a connection to the grpc server
 // returns an error if it is unable to dial the server
 func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, instanceMetadata *api.InstanceMetadata) (*client, error) {
-	clientConn, err := grpc.Dial(usageServerUrl, grpc.WithInsecure())
-	if err != nil {
-		return nil, err
-	}
-
 	return newUsageClient(
 		usagePayloadReader,
 		instanceMetadata,
-		api.NewReportingServiceClient(clientConn),
+		&defaultReportingServiceClientBuilder{url: usageServerUrl},
 	)
 }
 
@@ -54,19 +69,18 @@ func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader
 func newUsageClient(
 	usagePayloadReader UsagePayloadReader,
 	instanceMetadata *api.InstanceMetadata,
-	reportingServiceClient api.ReportingServiceClient,
+	reportingServiceClientBuilder ReportingServiceClientBuilder,
 ) (*client, error) {
 	return &client{
 		usagePayloadReader: usagePayloadReader,
-		usageClient:        reportingServiceClient,
+		usageClientBuilder: reportingServiceClientBuilder,
 		metadata:           instanceMetadata,
 	}, nil
 }
 
-func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) context.CancelFunc {
-	cancellableCtx, cancelFunc := context.WithCancel(ctx)
+func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) {
 	if os.Getenv(DisableUsageVar) == "true" {
-		return cancelFunc
+		return
 	}
 
 	ticker := time.NewTicker(interval)
@@ -77,20 +91,24 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 				payload, err := c.usagePayloadReader.GetPayload()
 				if err != nil {
 					contextutils.LoggerFrom(ctx).Errorf("Encountered error while reading payload: %s", err.Error())
-				} else {
-					_, err := c.usageClient.ReportUsage(ctx, &api.UsageRequest{
-						InstanceMetadata: c.metadata,
-						Payload:          payload,
-					})
-					if err != nil {
-						contextutils.LoggerFrom(ctx).Errorf("Encountered error while reporting usage: %s", err.Error())
-					}
+					continue
 				}
-				case <-cancellableCtx.Done():
-					return
+
+				client, err := c.usageClientBuilder.BuildClient()
+				if err != nil {
+					contextutils.LoggerFrom(ctx).Errorf("Encountered error while connecting to the grpc server: %s", err.Error())
+					continue
+				}
+				_, err = client.ReportUsage(ctx, &api.UsageRequest{
+					InstanceMetadata: c.metadata,
+					Payload:          payload,
+				})
+				if err != nil {
+					contextutils.LoggerFrom(ctx).Errorf("Encountered error while reporting usage: %s", err.Error())
+				}
+			case <-ctx.Done():
+				return
 			}
 		}
 	}()
-
-	return cancelFunc
 }
