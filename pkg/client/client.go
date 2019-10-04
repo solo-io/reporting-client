@@ -20,8 +20,11 @@ type UsagePayloadReader interface {
 	GetPayload() (map[string]string, error)
 }
 
+//go:generate mockgen -destination mocks/mock_usage_payload_reader.go -package mocks github.com/solo-io/reporting-client/pkg/client UsagePayloadReader
+//go:generate mockgen -destination mocks/mock_reporting_service_client.go -package mocks github.com/solo-io/reporting-client/pkg/api/v1 ReportingServiceClient
+
 type Client interface {
-	StartReportingUsage(ctx context.Context, interval time.Duration)
+	StartReportingUsage(ctx context.Context, interval time.Duration) context.CancelFunc
 }
 
 type client struct {
@@ -40,16 +43,30 @@ func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader
 		return nil, err
 	}
 
+	return newUsageClient(
+		usagePayloadReader,
+		instanceMetadata,
+		api.NewReportingServiceClient(clientConn),
+	)
+}
+
+// visible for testing
+func newUsageClient(
+	usagePayloadReader UsagePayloadReader,
+	instanceMetadata *api.InstanceMetadata,
+	reportingServiceClient api.ReportingServiceClient,
+) (*client, error) {
 	return &client{
 		usagePayloadReader: usagePayloadReader,
-		usageClient:        api.NewReportingServiceClient(clientConn),
+		usageClient:        reportingServiceClient,
 		metadata:           instanceMetadata,
 	}, nil
 }
 
-func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) {
+func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration) context.CancelFunc {
+	cancellableCtx, cancelFunc := context.WithCancel(ctx)
 	if os.Getenv(DisableUsageVar) == "true" {
-		return
+		return cancelFunc
 	}
 
 	ticker := time.NewTicker(interval)
@@ -69,7 +86,11 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 						contextutils.LoggerFrom(ctx).Errorf("Encountered error while reporting usage: %s", err.Error())
 					}
 				}
+				case <-cancellableCtx.Done():
+					return
 			}
 		}
 	}()
+
+	return cancelFunc
 }

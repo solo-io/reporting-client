@@ -1,9 +1,4 @@
 steps:
-  - name: gcr.io/cloud-builders/gcloud
-    args: ['config', 'set', 'compute/zone', 'us-central1-b']
-  - name: gcr.io/cloud-builders/gcloud
-    args: ['container', 'clusters', 'get-credentials', 'reporting-client-test']
-
   - name: gcr.io/cloud-builders/gsutil
     entrypoint: 'bash'
     args: ['-c', 'mkdir -p /go/pkg && cd /go/pkg && gsutil cat gs://$PROJECT_ID-cache/reporting-client/reporting-client-mod.tar.gz | tar -xzf -']
@@ -24,17 +19,9 @@ steps:
       - 'RUN_KUBE_TESTS=1'
       - 'BUILD_ID=$BUILD_ID'
     secretEnv: ['GITHUB_TOKEN']
-    args: ['-r', '-p', '-failFast', '-randomizeSuites', '-randomizeAllSpecs', '-skipPackage=./installutils/kubeinstall,./debugutils/test']
+    args: ['-r', '-p', '-failFast', '-randomizeSuites', '-randomizeAllSpecs']
     waitFor: ['build']
     id: 'run-tests'
-
-  - name: 'gcr.io/$PROJECT_ID/go-mod-ginkgo:0.1.5'
-    volumes: *vol
-    env:
-      - 'RUN_KUBE_TESTS=1'
-    args: ['-r', '-failFast', './installutils/kubeinstall']
-    waitFor: ['run-tests']
-    id: 'kubeinstall-tests'
 
 
 secrets:
