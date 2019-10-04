@@ -2,18 +2,24 @@ syntax = "proto3";
 package reportingapi.solo.io;
 option go_package = "v1";
 
-message Usage {
+// information that every reporting source should include
+message InstanceMetadata {
     string product = 1;
     string version = 2;
     string arch = 3;
     string os = 4;
+}
 
-    map<string, string> usage = 5;
+message UsageRequest {
+    InstanceMetadata instance_metadata = 1;
+
+    // arbitrary key/value pairs - each reporting source can choose what to include here
+    map<string, string> payload = 2;
 }
 
 message UsageResponse {
 }
 
 service ReportingService {
-    rpc ReportUsage(Usage) returns (UsageResponse) {}
+    rpc ReportUsage (UsageRequest) returns (UsageResponse) {}
 }
