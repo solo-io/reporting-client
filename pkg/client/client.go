@@ -26,10 +26,12 @@ type UsagePayloadReader interface {
 	GetPayload() (map[string]string, error)
 }
 
-// the type grpc.ClientConn is a struct- to make testing easier, alias it to this interface
 type CloseableConnection interface {
 	Close() error
 }
+
+// the type grpc.ClientConn is a struct- to make testing easier, hide it behind this interface
+var _ CloseableConnection = &grpc.ClientConn{}
 
 type ReportingServiceClientBuilder func() (api.ReportingServiceClient, CloseableConnection, error)
 
@@ -105,6 +107,7 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 		return c.errorChan
 	}
 
+	// send an initial usage report immediately
 	// careful not to block this goroutine
 	go c.send(ctx)
 
