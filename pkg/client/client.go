@@ -22,7 +22,7 @@ const (
 
 	// careful setting values here- this will cause `StartReportingUsage` to potentially block for at least
 	// this long if there's no listener on the channel yet. In the case of glooctl, a long block at this point would be bad UX
-	initialSendTimeout = time.Millisecond * 100
+	initialErrorSendTimeout = time.Millisecond * 100
 )
 
 // a type that knows how to load the usage payload you want to report
@@ -110,7 +110,7 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 	}
 
 	// careful not to block this goroutine
-	go c.send(ctx, initialSendTimeout)
+	go c.send(ctx, initialErrorSendTimeout)
 
 	ticker := time.NewTicker(interval)
 	go func() {
