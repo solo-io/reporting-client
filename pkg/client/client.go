@@ -19,10 +19,6 @@ const (
 	TestingUrl      = "localhost:8000"
 
 	errorSendTimeout = time.Second * 10
-
-	// careful setting values here- this will cause `StartReportingUsage` to potentially block for at least
-	// this long if there's no listener on the channel yet. In the case of glooctl, a long block at this point would be bad UX
-	initialErrorSendTimeout = time.Millisecond * 100
 )
 
 // a type that knows how to load the usage payload you want to report
@@ -110,14 +106,14 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 	}
 
 	// careful not to block this goroutine
-	go c.send(ctx, initialErrorSendTimeout)
+	go c.send(ctx)
 
 	ticker := time.NewTicker(interval)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				c.send(ctx, errorSendTimeout)
+				c.send(ctx)
 			case <-ctx.Done():
 				close(c.errorChan)
 				return
@@ -128,15 +124,15 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 	return c.errorChan
 }
 
-func (c *client) send(ctx context.Context, timeout time.Duration) {
+func (c *client) send(ctx context.Context) {
 	payload, err := c.usagePayloadReader.GetPayload()
 	if err != nil {
-		sendWithTimeout(c.errorChan, ErrorReadingPayload(err), timeout)
+		sendWithTimeout(c.errorChan, ErrorReadingPayload(err))
 		return
 	}
 	client, conn, err := c.usageClientBuilder()
 	if err != nil {
-		sendWithTimeout(c.errorChan, ErrorConnecting(err), timeout)
+		sendWithTimeout(c.errorChan, ErrorConnecting(err))
 		return
 	} else {
 		defer conn.Close()
@@ -146,16 +142,16 @@ func (c *client) send(ctx context.Context, timeout time.Duration) {
 		Payload:          payload,
 	})
 	if err != nil {
-		sendWithTimeout(c.errorChan, ErrorSendingUsage(err), timeout)
+		sendWithTimeout(c.errorChan, ErrorSendingUsage(err))
 		return
 	}
 }
 
 // we don't want to block this whole goroutine if no one is listening for errors,
 // so if a receiver isn't ready after the timeout, give up and continue
-func sendWithTimeout(errorChan chan<- error, err error, timeout time.Duration) {
+func sendWithTimeout(errorChan chan<- error, err error) {
 	select {
 	case errorChan <- err:
-	case <-time.After(timeout):
+	case <-time.After(errorSendTimeout):
 	}
 }
