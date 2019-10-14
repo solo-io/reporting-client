@@ -1,0 +1,4 @@
+changelog:
+  - type: FIX
+    description: Make sure that a usage report is sent immediately, for CLI cases like glooctl
+    issueLink: https://github.com/solo-io/solo-projects/issues/1215

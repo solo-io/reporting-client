@@ -14,6 +14,13 @@ import (
 	"github.com/solo-io/reporting-client/pkg/client/mocks"
 )
 
+type testConnection struct {
+}
+
+func (t *testConnection) Close() error {
+	return nil
+}
+
 type testReader struct {
 	payload map[string]string
 }
@@ -77,14 +84,16 @@ var _ = Describe("Reporting client", func() {
 	})
 
 	It("can report usage", func() {
-		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, error) {
-			return reportingServiceClient, nil
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, CloseableConnection, error) {
+			return reportingServiceClient, &testConnection{}, nil
 		})
 
 		request := &v1.UsageRequest{
 			InstanceMetadata: instanceMetadata,
 			Payload:          map[string]string{},
 		}
+
+		// need this channel
 		reportChannel := make(chan *v1.UsageRequest)
 
 		reportingServiceClient.EXPECT().
@@ -99,8 +108,8 @@ var _ = Describe("Reporting client", func() {
 	})
 
 	It("reports an error on the channel if the server is unreachable", func() {
-		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, error) {
-			return reportingServiceClient, nil
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, CloseableConnection, error) {
+			return reportingServiceClient, &testConnection{}, nil
 		})
 
 		request := &v1.UsageRequest{
@@ -131,8 +140,8 @@ var _ = Describe("Reporting client", func() {
 		It("does not report usage", func() {
 			reportChannel := make(chan *v1.UsageRequest)
 
-			usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, error) {
-				return reportingServiceClient, nil
+			usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, CloseableConnection, error) {
+				return reportingServiceClient, &testConnection{}, nil
 			})
 
 			errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*100)

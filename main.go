@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"time"
 
 	v1 "github.com/solo-io/reporting-client/pkg/api/v1"
@@ -19,13 +20,14 @@ func (p *testPayloadReader) GetPayload() (map[string]string, error) {
 
 // just for testing purposes
 func main() {
-	serverAddr := "localhost:3000"
-	client := client.NewUsageClient(serverAddr, &testPayloadReader{}, &v1.InstanceMetadata{
+	client := client.NewUsageClient(client.TestingUrl, &testPayloadReader{}, &v1.InstanceMetadata{
 		Product: "test",
 		Version: "0.0.1",
 		Arch:    "test",
 		Os:      "test",
 	})
-	client.StartReportingUsage(context.Background(), time.Second*2)
-	time.Sleep(time.Hour * 100)
+	errChan := client.StartReportingUsage(context.Background(), time.Second*2)
+	for err := range errChan {
+		log.Printf("Error: %s", err.Error())
+	}
 }
