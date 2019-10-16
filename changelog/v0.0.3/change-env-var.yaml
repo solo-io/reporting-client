@@ -1,0 +1,4 @@
+changelog:
+  - type: FIX
+    description: Rename env var to something more logical
+    issueLink: https://github.com/solo-io/solo-projects/issues/1215
