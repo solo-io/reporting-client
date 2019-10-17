@@ -39,7 +39,7 @@ func (t *testClientBuilder) BuildClient() (v1.ReportingServiceClient, error) {
 	return t.client, nil
 }
 
-var _ = FDescribe("Reporting client", func() {
+var _ = Describe("Reporting client", func() {
 
 	var buildPayloadGetter = func(payload map[string]string) UsagePayloadReader {
 		return &testReader{payload: payload}
