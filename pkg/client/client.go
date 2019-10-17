@@ -5,7 +5,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"sync"
 	"time"
+
+	"github.com/solo-io/reporting-client/pkg/sig"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -18,7 +21,7 @@ const (
 	DisableUsageVar = "DISABLE_USAGE_REPORTING"
 	TestingUrl      = "localhost:3000"
 
-	errorSendTimeout = time.Second * 10
+	defaultErrorSendTimeout = time.Second * 10
 )
 
 // a type that knows how to load the usage payload you want to report
@@ -73,31 +76,44 @@ type Client interface {
 type client struct {
 	usagePayloadReader UsagePayloadReader
 	usageClientBuilder ReportingServiceClientBuilder
-	metadata           *api.InstanceMetadata
+	product            *api.Product
+	signatureManager   sig.SignatureManager
 	errorChan          chan error
+	errorSendTimeout   time.Duration
+
+	// we have goroutines and timeouts and etc so things are messy- lock before
+	// interacting with the error channel. Otherwise in testing you'll see data races happening
+	errorChannelMutex sync.Mutex
 }
 
 var _ Client = &client{}
 
-func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, instanceMetadata *api.InstanceMetadata) *client {
+func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, product *api.Product, signatureManager sig.SignatureManager) *client {
 	return newUsageClient(
 		usagePayloadReader,
-		instanceMetadata,
+		product,
+		signatureManager,
 		defaultReportingServiceClientBuilder(usageServerUrl),
+		defaultErrorSendTimeout,
 	)
 }
 
 // visible for testing
 func newUsageClient(
 	usagePayloadReader UsagePayloadReader,
-	instanceMetadata *api.InstanceMetadata,
+	product *api.Product,
+	signatureManager sig.SignatureManager,
 	reportingServiceClientBuilder ReportingServiceClientBuilder,
+	errorSendTimeout time.Duration,
 ) *client {
 	return &client{
 		usagePayloadReader: usagePayloadReader,
 		usageClientBuilder: reportingServiceClientBuilder,
-		metadata:           instanceMetadata,
+		product:            product,
+		signatureManager:   signatureManager,
 		errorChan:          make(chan error),
+		errorSendTimeout:   errorSendTimeout,
+		errorChannelMutex:  sync.Mutex{},
 	}
 }
 
@@ -109,16 +125,18 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 
 	// send an initial usage report immediately
 	// careful not to block this goroutine
-	go c.send(ctx)
+	go c.sendUsage(ctx)
 
 	ticker := time.NewTicker(interval)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				c.send(ctx)
+				c.sendUsage(ctx)
 			case <-ctx.Done():
+				c.errorChannelMutex.Lock()
 				close(c.errorChan)
+				c.errorChannelMutex.Unlock()
 				return
 			}
 		}
@@ -127,34 +145,47 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 	return c.errorChan
 }
 
-func (c *client) send(ctx context.Context) {
+func (c *client) sendUsage(ctx context.Context) {
 	payload, err := c.usagePayloadReader.GetPayload()
 	if err != nil {
-		sendWithTimeout(c.errorChan, ErrorReadingPayload(err))
+		c.sendErrorWithTimeout(ctx, ErrorReadingPayload(err))
 		return
 	}
 	client, conn, err := c.usageClientBuilder()
 	if err != nil {
-		sendWithTimeout(c.errorChan, ErrorConnecting(err))
+		c.sendErrorWithTimeout(ctx, ErrorConnecting(err))
 		return
 	} else {
 		defer conn.Close()
 	}
+	signature, err := c.signatureManager.GetSignature()
+	if err != nil {
+		// we still want to report usage even if the signature is busted, so don't return early here
+		c.sendErrorWithTimeout(ctx, ErrorGettingSignature(err))
+	}
+
 	_, err = client.ReportUsage(ctx, &api.UsageRequest{
-		InstanceMetadata: c.metadata,
-		Payload:          payload,
+		InstanceMetadata: &api.InstanceMetadata{
+			Product:   c.product,
+			Signature: signature,
+		},
+		Payload: payload,
 	})
 	if err != nil {
-		sendWithTimeout(c.errorChan, ErrorSendingUsage(err))
+		c.sendErrorWithTimeout(ctx, ErrorSendingUsage(err))
 		return
 	}
 }
 
 // we don't want to block this whole goroutine if no one is listening for errors,
 // so if a receiver isn't ready after the timeout, give up and continue
-func sendWithTimeout(errorChan chan<- error, err error) {
+func (c *client) sendErrorWithTimeout(ctx context.Context, err error) {
+	c.errorChannelMutex.Lock()
+	defer c.errorChannelMutex.Unlock()
+
 	select {
-	case errorChan <- err:
-	case <-time.After(errorSendTimeout):
+	case <-ctx.Done():
+	case c.errorChan <- err:
+	case <-time.After(c.errorSendTimeout):
 	}
 }

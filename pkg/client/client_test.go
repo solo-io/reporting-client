@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	sigmocks "github.com/solo-io/reporting-client/pkg/sig/mocks"
+
 	"github.com/solo-io/go-utils/errors"
 
 	"github.com/golang/mock/gomock"
@@ -37,24 +39,7 @@ func (t *testClientBuilder) BuildClient() (v1.ReportingServiceClient, error) {
 	return t.client, nil
 }
 
-var _ = Describe("Reporting client", func() {
-
-	var (
-		ctrl                   *gomock.Controller
-		reportingServiceClient *mocks.MockReportingServiceClient
-		instanceMetadata       = &v1.InstanceMetadata{
-			Product: "test-product",
-			Version: "v0.6.9",
-			Arch:    "test-arch",
-			Os:      "test-os",
-		}
-		testErr                = errors.New("test-err")
-		ctx                    context.Context
-		cancelFunc             context.CancelFunc
-		pollInterval           = time.Millisecond * 50
-		timeoutForEventually   = time.Second
-		timeoutForConsistently = time.Millisecond * 500
-	)
+var _ = FDescribe("Reporting client", func() {
 
 	var buildPayloadGetter = func(payload map[string]string) UsagePayloadReader {
 		return &testReader{payload: payload}
@@ -72,25 +57,49 @@ var _ = Describe("Reporting client", func() {
 		}
 	}
 
-	BeforeEach(func() {
-		ctrl = gomock.NewController(GinkgoT())
-		reportingServiceClient = mocks.NewMockReportingServiceClient(ctrl)
-		ctx, cancelFunc = context.WithCancel(context.TODO())
-	})
-
-	AfterEach(func() {
-		ctrl.Finish()
-		cancelFunc()
-	})
-
 	It("can report usage", func() {
-		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, CloseableConnection, error) {
-			return reportingServiceClient, &testConnection{}, nil
-		})
+		var (
+			ctrl                   *gomock.Controller
+			reportingServiceClient *mocks.MockReportingServiceClient
+			product                = &v1.Product{
+				Product: "test-product",
+				Version: "v0.6.9",
+				Arch:    "test-arch",
+				Os:      "test-os",
+			}
+			signatureManager              *sigmocks.MockSignatureManager
+			ctx                           context.Context
+			cancelFunc                    context.CancelFunc
+			pollInterval                  = time.Millisecond * 50
+			timeoutForEventually          = time.Second
+			timeoutForConsistently        = time.Millisecond * 500
+			reportingServiceClientBuilder = func() (v1.ReportingServiceClient, CloseableConnection, error) {
+				return reportingServiceClient, &testConnection{}, nil
+			}
+			signature        = "test-signature"
+			errorSendTimeout = time.Millisecond * 10
+		)
+
+		ctrl = gomock.NewController(GinkgoT())
+		defer ctrl.Finish()
+		reportingServiceClient = mocks.NewMockReportingServiceClient(ctrl)
+		signatureManager = sigmocks.NewMockSignatureManager(ctrl)
+		ctx, cancelFunc = context.WithCancel(context.TODO())
+		defer cancelFunc()
+
+		signatureManager.EXPECT().
+			GetSignature().
+			Return(signature, nil).
+			AnyTimes()
+
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), product, signatureManager, reportingServiceClientBuilder, errorSendTimeout)
 
 		request := &v1.UsageRequest{
-			InstanceMetadata: instanceMetadata,
-			Payload:          map[string]string{},
+			InstanceMetadata: &v1.InstanceMetadata{
+				Product:   product,
+				Signature: signature,
+			},
+			Payload: map[string]string{},
 		}
 
 		// need this channel
@@ -108,13 +117,47 @@ var _ = Describe("Reporting client", func() {
 	})
 
 	It("reports an error on the channel if the server is unreachable", func() {
-		usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, CloseableConnection, error) {
-			return reportingServiceClient, &testConnection{}, nil
-		})
+		var (
+			ctrl                   *gomock.Controller
+			reportingServiceClient *mocks.MockReportingServiceClient
+			product                = &v1.Product{
+				Product: "test-product",
+				Version: "v0.6.9",
+				Arch:    "test-arch",
+				Os:      "test-os",
+			}
+			signatureManager              *sigmocks.MockSignatureManager
+			testErr                       = errors.New("test-err")
+			ctx                           context.Context
+			pollInterval                  = time.Millisecond * 50
+			timeoutForConsistently        = time.Millisecond * 500
+			reportingServiceClientBuilder = func() (v1.ReportingServiceClient, CloseableConnection, error) {
+				return reportingServiceClient, &testConnection{}, nil
+			}
+			signature        = "test-signature"
+			errorSendTimeout = time.Millisecond * 10
+		)
+
+		ctrl = gomock.NewController(GinkgoT())
+		defer ctrl.Finish()
+		reportingServiceClient = mocks.NewMockReportingServiceClient(ctrl)
+		signatureManager = sigmocks.NewMockSignatureManager(ctrl)
+		ctx, cancelFunc := context.WithCancel(context.TODO())
+		defer cancelFunc()
+
+		signatureManager.EXPECT().
+			GetSignature().
+			Return(signature, nil).
+			AnyTimes()
+
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), product, signatureManager, reportingServiceClientBuilder, errorSendTimeout)
 
 		request := &v1.UsageRequest{
-			InstanceMetadata: instanceMetadata,
-			Payload:          map[string]string{},
+			InstanceMetadata: &v1.InstanceMetadata{
+				Product:   product,
+				Signature: signature,
+			},
+			Payload: map[string]string{},
 		}
 		reportChannel := make(chan *v1.UsageRequest)
 
@@ -126,7 +169,75 @@ var _ = Describe("Reporting client", func() {
 		errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*10)
 
 		Consistently(reportChannel, timeoutForConsistently, pollInterval).ShouldNot(Receive())
-		Consistently(errorChan, timeoutForConsistently, pollInterval).Should(Receive(Equal(ErrorSendingUsage(testErr))), "Should receive errors on the channel")
+		Consistently(func() string {
+			err := <-errorChan
+			return err.Error()
+		}, timeoutForConsistently, pollInterval).Should(Equal(ErrorSendingUsage(testErr).Error()), "Should receive errors on the channel")
+	})
+
+	It("still reports when the signature cannot be determined", func() {
+		var (
+			ctrl                   *gomock.Controller
+			reportingServiceClient *mocks.MockReportingServiceClient
+			product                = &v1.Product{
+				Product: "test-product",
+				Version: "v0.6.9",
+				Arch:    "test-arch",
+				Os:      "test-os",
+			}
+			signatureManager              *sigmocks.MockSignatureManager
+			testErr                       = errors.New("test-err")
+			ctx                           context.Context
+			pollInterval                  = time.Millisecond * 50
+			timeoutForEventually          = time.Second
+			reportingServiceClientBuilder = func() (v1.ReportingServiceClient, CloseableConnection, error) {
+				return reportingServiceClient, &testConnection{}, nil
+			}
+			signature        = "test-signature"
+			errorSendTimeout = time.Millisecond * 10
+		)
+
+		ctrl = gomock.NewController(GinkgoT())
+		defer ctrl.Finish()
+		reportingServiceClient = mocks.NewMockReportingServiceClient(ctrl)
+		signatureManager = sigmocks.NewMockSignatureManager(ctrl)
+		ctx, cancelFunc := context.WithCancel(context.TODO())
+		defer cancelFunc()
+
+		signatureManager.EXPECT().
+			GetSignature().
+			Return(signature, nil).
+			AnyTimes()
+
+		brokenSignatureManager := sigmocks.NewMockSignatureManager(ctrl)
+		brokenSignatureManager.EXPECT().
+			GetSignature().
+			Return("", testErr).
+			MinTimes(1)
+
+		usageClient := newUsageClient(buildEmptyPayloadGetter(), product, brokenSignatureManager, reportingServiceClientBuilder, errorSendTimeout)
+
+		request := &v1.UsageRequest{
+			InstanceMetadata: &v1.InstanceMetadata{
+				Product:   product,
+				Signature: "",
+			},
+			Payload: map[string]string{},
+		}
+
+		// need this channel
+		reportChannel := make(chan *v1.UsageRequest)
+
+		reportingServiceClient.EXPECT().
+			ReportUsage(gomock.Any(), request).
+			DoAndReturn(requestSender(reportChannel)).
+			AnyTimes()
+
+		errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*10)
+		err := <-errorChan
+
+		Expect(err).To(Equal(ErrorGettingSignature(testErr)))
+		Eventually(reportChannel, timeoutForEventually, pollInterval).Should(Receive(Equal(request)))
 	})
 
 	Context("when usage is disabled", func() {
@@ -138,16 +249,38 @@ var _ = Describe("Reporting client", func() {
 		})
 
 		It("does not report usage", func() {
+			var (
+				ctrl                   *gomock.Controller
+				reportingServiceClient *mocks.MockReportingServiceClient
+				product                = &v1.Product{
+					Product: "test-product",
+					Version: "v0.6.9",
+					Arch:    "test-arch",
+					Os:      "test-os",
+				}
+				signatureManager              *sigmocks.MockSignatureManager
+				ctx                           context.Context
+				pollInterval                  = time.Millisecond * 50
+				reportingServiceClientBuilder = func() (v1.ReportingServiceClient, CloseableConnection, error) {
+					return reportingServiceClient, &testConnection{}, nil
+				}
+				errorSendTimeout = time.Millisecond * 10
+			)
+			ctrl = gomock.NewController(GinkgoT())
+			defer ctrl.Finish()
+			reportingServiceClient = mocks.NewMockReportingServiceClient(ctrl)
+			signatureManager = sigmocks.NewMockSignatureManager(ctrl)
+			ctx, cancelFunc := context.WithCancel(context.TODO())
+			defer cancelFunc()
+
 			reportChannel := make(chan *v1.UsageRequest)
 
-			usageClient := newUsageClient(buildEmptyPayloadGetter(), instanceMetadata, func() (v1.ReportingServiceClient, CloseableConnection, error) {
-				return reportingServiceClient, &testConnection{}, nil
-			})
+			usageClient := newUsageClient(buildEmptyPayloadGetter(), product, signatureManager, reportingServiceClientBuilder, errorSendTimeout)
 
 			errorChan := usageClient.StartReportingUsage(ctx, time.Millisecond*100)
 
-			Consistently(reportChannel, timeoutForConsistently, pollInterval).ShouldNot(Receive())
-			Consistently(errorChan, timeoutForConsistently, pollInterval).ShouldNot(Receive())
+			Consistently(reportChannel, time.Millisecond*500, pollInterval).ShouldNot(Receive())
+			Consistently(errorChan, time.Millisecond*500, pollInterval).ShouldNot(Receive())
 		})
 	})
 })

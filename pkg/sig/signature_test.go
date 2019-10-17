@@ -28,7 +28,6 @@ var _ = Describe("Signature Manager", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(signature).NotTo(BeEmpty())
-		Expect(signature).NotTo(Equal(ErrorSignature))
 	})
 
 	It("can regenerate a signature if the original is unrecoverable", func() {
@@ -39,7 +38,6 @@ var _ = Describe("Signature Manager", func() {
 		signature, err := sigManager.GetSignature()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(signature).NotTo(BeEmpty())
-		Expect(signature).NotTo(Equal(ErrorSignature))
 
 		original := signature
 
@@ -48,7 +46,6 @@ var _ = Describe("Signature Manager", func() {
 		newSig, err := sigManager.GetSignature()
 		Expect(err).NotTo(HaveOccurred())
 		Expect(newSig).NotTo(BeEmpty())
-		Expect(newSig).NotTo(Equal(ErrorSignature))
 
 		Expect(original).NotTo(Equal(newSig))
 	})

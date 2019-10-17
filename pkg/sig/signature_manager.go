@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const ErrorSignature = "ERROR"
+//go:generate mockgen -destination mocks/mock_signature_manager.go -package mocks github.com/solo-io/reporting-client/pkg/sig SignatureManager
 
 // users of reporting-client are encouraged but not required to use this type to keep track of their signature
 type SignatureManager interface {
@@ -14,7 +14,6 @@ type SignatureManager interface {
 	// get the signature for this reporting client instance
 	// this function may return both a nonempty string and an error in the case
 	// where we failed to load the previously-existing signature but generated a new one.
-	// It may return the const ErrorSignature when it is totally unable to generate a signature
 	GetSignature() (string, error)
 }
 
@@ -45,7 +44,7 @@ func (i *inMemorySignatureManager) optionallyRegenerateSignature() {
 		if err == nil {
 			i.signature = signature.String()
 		} else {
-			i.signature = ErrorSignature
+			i.signature = ""
 		}
 	}
 }
