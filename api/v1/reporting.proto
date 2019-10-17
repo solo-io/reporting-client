@@ -8,6 +8,10 @@ message InstanceMetadata {
     string version = 2;
     string arch = 3;
     string os = 4;
+
+    // should be unique per reporting source, and unchanging over the life of the reporting source
+    // this repo offers a SignatureManager type that can maintain a unique signature
+    string signature = 5;
 }
 
 message UsageRequest {

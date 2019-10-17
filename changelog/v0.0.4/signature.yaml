@@ -1,0 +1,4 @@
+changelog:
+  - type: NEW_FEATURE
+    description: Allow a unique signature to be sent over the API
+    issueLink: https://github.com/solo-io/solo-projects/issues/1231

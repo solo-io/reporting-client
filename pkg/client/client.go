@@ -16,7 +16,7 @@ import (
 const (
 	// set this env var to the string "true" to prevent usage from being reported
 	DisableUsageVar = "DISABLE_USAGE_REPORTING"
-	TestingUrl      = "localhost:8000"
+	TestingUrl      = "localhost:3000"
 
 	errorSendTimeout = time.Second * 10
 )
