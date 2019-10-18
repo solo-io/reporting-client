@@ -3,11 +3,19 @@ package reportingapi.solo.io;
 option go_package = "v1";
 
 // information that every reporting source should include
-message InstanceMetadata {
+message Product {
     string product = 1;
     string version = 2;
     string arch = 3;
     string os = 4;
+}
+
+message InstanceMetadata {
+    Product product = 1;
+
+    // should be unique per reporting source, and unchanging over the life of the reporting source
+    // this repo offers a SignatureManager type that can maintain a unique signature
+    string signature = 2;
 }
 
 message UsageRequest {

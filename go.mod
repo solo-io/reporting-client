@@ -6,6 +6,7 @@ require (
 	github.com/gogo/protobuf v1.3.0 // indirect
 	github.com/golang/mock v1.3.1
 	github.com/golang/protobuf v1.3.2
+	github.com/google/uuid v1.1.1
 	github.com/onsi/ginkgo v1.8.0
 	github.com/onsi/gomega v1.5.0
 	github.com/solo-io/go-utils v0.10.16

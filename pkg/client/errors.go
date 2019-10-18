@@ -24,6 +24,10 @@ func ErrorSendingUsage(err error) *ReportingError {
 	return &ReportingError{message: fmt.Sprintf("Encountered error while reporting usage: %s", err.Error())}
 }
 
+func ErrorGettingSignature(err error) *ReportingError {
+	return &ReportingError{message: fmt.Sprintf("Encountered error while getting signature: %s", err.Error())}
+}
+
 func IsReportingError(err error) bool {
 	if err == nil {
 		return false
