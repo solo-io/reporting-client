@@ -10,13 +10,6 @@
 #
 # This script does not handle file names that contain spaces.
 
-git diff --cached | grep private_key >/dev/null
-
-if [ $? = 0 ]; then
-    echo "The text \"private_key\" was found in your diff. Are you committing the Google Cloud private key?"
-    exit 1
-fi
-
 gofiles=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$')
 [ -z "$gofiles" ] && exit 0
 
