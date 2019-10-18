@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/solo-io/reporting-client/pkg/sig"
+	"github.com/solo-io/reporting-client/pkg/signature"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -77,7 +77,7 @@ type client struct {
 	usagePayloadReader UsagePayloadReader
 	usageClientBuilder ReportingServiceClientBuilder
 	product            *api.Product
-	signatureManager   sig.SignatureManager
+	signatureManager   signature.SignatureManager
 	errorChan          chan error
 	errorSendTimeout   time.Duration
 
@@ -88,7 +88,7 @@ type client struct {
 
 var _ Client = &client{}
 
-func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, product *api.Product, signatureManager sig.SignatureManager) *client {
+func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader, product *api.Product, signatureManager signature.SignatureManager) *client {
 	return newUsageClient(
 		usagePayloadReader,
 		product,
@@ -102,7 +102,7 @@ func NewUsageClient(usageServerUrl string, usagePayloadReader UsagePayloadReader
 func newUsageClient(
 	usagePayloadReader UsagePayloadReader,
 	product *api.Product,
-	signatureManager sig.SignatureManager,
+	signatureManager signature.SignatureManager,
 	reportingServiceClientBuilder ReportingServiceClientBuilder,
 	errorSendTimeout time.Duration,
 ) *client {

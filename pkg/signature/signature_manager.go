@@ -1,4 +1,4 @@
-package sig
+package signature
 
 import (
 	"sync"
@@ -43,8 +43,6 @@ func (i *inMemorySignatureManager) optionallyRegenerateSignature() {
 
 		if err == nil {
 			i.signature = signature.String()
-		} else {
-			i.signature = ""
 		}
 	}
 }

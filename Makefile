@@ -1,3 +1,7 @@
+.PHONY: init
+init:
+	git config core.hooksPath .githooks
+
 .PHONY: update-deps
 update-deps:
 	go get github.com/golang/protobuf/protoc-gen-go

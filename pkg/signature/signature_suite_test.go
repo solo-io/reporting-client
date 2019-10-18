@@ -1,4 +1,4 @@
-package sig
+package signature
 
 import (
 	"testing"

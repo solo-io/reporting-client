@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
-	"github.com/solo-io/reporting-client/pkg/sig"
 	"log"
 	"time"
+
+	"github.com/solo-io/reporting-client/pkg/signature"
 
 	v1 "github.com/solo-io/reporting-client/pkg/api/v1"
 	"github.com/solo-io/reporting-client/pkg/client"
@@ -20,14 +21,13 @@ func (p *testPayloadReader) GetPayload() (map[string]string, error) {
 }
 
 type testSignatureManager struct {
-
 }
 
 func (t *testSignatureManager) GetSignature() (string, error) {
 	return "test-signature", nil
 }
 
-var _ sig.SignatureManager = &testSignatureManager{}
+var _ signature.SignatureManager = &testSignatureManager{}
 
 // just for testing purposes
 func main() {
