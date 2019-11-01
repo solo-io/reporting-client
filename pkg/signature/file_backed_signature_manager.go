@@ -29,7 +29,7 @@ information on how to disable it.
 )
 
 // generate a signature and persist it on disk so that we get consistent signatures across CLI invocations
-// both fields are optional to provide - the signature file will be written by default to ~/.soloio/usage-signature
+// both fields are optional to provide - the signature file will be written by default to ~/.soloio/signature
 type FileBackedSignatureManager struct {
 	// expected to be a path to the directory where the signature file will be written
 	ConfigDir string
