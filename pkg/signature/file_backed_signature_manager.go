@@ -1,19 +1,31 @@
 package signature
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/uuid"
 )
 
 const (
-	signatureFileName = "usage-signature"
+	signatureFileName = "signature"
 	defaultDirectory  = ".soloio"
 	filePermissions   = 0644
 	dirPermissions    = 0755
+
+	fileContentsTemplate = `%s
+
+This signature is a randomly generated UUID used to de-duplicate
+alerts and version information. This signature is random, it is
+not based on any personally identifiable information. To create
+a new signature, you can simply delete this file at any time.
+See the documentation for the software using Reporting for more
+information on how to disable it.
+`
 )
 
 // generate a signature and persist it on disk so that we get consistent signatures across CLI invocations
@@ -53,12 +65,19 @@ func (f *FileBackedSignatureManager) getOrGenerateSignature(signatureFilePath st
 		return f.writeNewSignatureFile(signatureFilePath)
 	}
 
-	signatureBytes, err := ioutil.ReadFile(signatureFilePath)
+	fileBytes, err := ioutil.ReadFile(signatureFilePath)
 	if err != nil {
 		return "", err
 	}
 
-	signature := string(signatureBytes)
+	fileContents := string(fileBytes)
+
+	lines := strings.Split(fileContents, "\n")
+
+	var signature string
+	if len(lines) != 0 {
+		signature = lines[0]
+	}
 
 	if signature == "" {
 		return f.writeNewSignatureFile(signatureFilePath)
@@ -80,7 +99,9 @@ func (f *FileBackedSignatureManager) writeNewSignatureFile(signatureFilePath str
 		return "", err
 	}
 
-	return signature, ioutil.WriteFile(signatureFilePath, []byte(signature), filePermissions)
+	fileContents := fmt.Sprintf(fileContentsTemplate, signature)
+
+	return signature, ioutil.WriteFile(signatureFilePath, []byte(fileContents), filePermissions)
 }
 
 func (f *FileBackedSignatureManager) generateSignature() (string, error) {
