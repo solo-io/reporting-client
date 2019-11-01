@@ -1,0 +1,4 @@
+changelog:
+  - type: NEW_FEATURE
+    description: New signature manager implementation to be used in CLI clients that writes the signature to ~/.soloio
+    issueLink: https://github.com/solo-io/gloo/issues/1559

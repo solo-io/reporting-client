@@ -40,7 +40,7 @@ func main() {
 			Arch:    "test-arch",
 			Os:      "test-os",
 		},
-		&testSignatureManager{},
+		&signature.FileBackedSignatureManager{},
 	)
 	errChan := client.StartReportingUsage(context.Background(), time.Second*2)
 	for err := range errChan {
