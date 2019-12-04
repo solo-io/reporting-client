@@ -2,12 +2,11 @@ package client
 
 import (
 	"context"
+	"errors"
 	"os"
 	"time"
 
 	sigmocks "github.com/solo-io/reporting-client/pkg/signature/mocks"
-
-	"github.com/solo-io/go-utils/errors"
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/ginkgo"
