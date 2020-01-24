@@ -123,16 +123,18 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 		return c.errorChan
 	}
 
-	// send an initial usage report immediately
-	// careful not to block this goroutine
-	go c.sendUsage(ctx)
+	// send an initial usage report synchronously, but still report any error asynchronously
+	c.sendUsage(ctx, func(ctx context.Context, err error) {
+		// don't block the current goroutine
+		go c.sendErrorWithTimeout(ctx, err)
+	})
 
 	ticker := time.NewTicker(interval)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
-				c.sendUsage(ctx)
+				c.sendUsage(ctx, c.sendErrorWithTimeout)
 			case <-ctx.Done():
 				c.errorChannelMutex.Lock()
 				close(c.errorChan)
@@ -145,15 +147,17 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 	return c.errorChan
 }
 
-func (c *client) sendUsage(ctx context.Context) {
+type errorHandler func(ctx context.Context, err error)
+
+func (c *client) sendUsage(ctx context.Context, errorHandler errorHandler) {
 	payload, err := c.usagePayloadReader.GetPayload()
 	if err != nil {
-		c.sendErrorWithTimeout(ctx, ErrorReadingPayload(err))
+		errorHandler(ctx, ErrorReadingPayload(err))
 		return
 	}
 	client, conn, err := c.usageClientBuilder()
 	if err != nil {
-		c.sendErrorWithTimeout(ctx, ErrorConnecting(err))
+		errorHandler(ctx, ErrorConnecting(err))
 		return
 	} else {
 		defer conn.Close()
@@ -161,7 +165,7 @@ func (c *client) sendUsage(ctx context.Context) {
 	signature, err := c.signatureManager.GetSignature()
 	if err != nil {
 		// we still want to report usage even if the signature is busted, so don't return early here
-		c.sendErrorWithTimeout(ctx, ErrorGettingSignature(err))
+		errorHandler(ctx, ErrorGettingSignature(err))
 	}
 
 	_, err = client.ReportUsage(ctx, &api.UsageRequest{
@@ -172,7 +176,7 @@ func (c *client) sendUsage(ctx context.Context) {
 		Payload: payload,
 	})
 	if err != nil {
-		c.sendErrorWithTimeout(ctx, ErrorSendingUsage(err))
+		errorHandler(ctx, ErrorSendingUsage(err))
 		return
 	}
 }
