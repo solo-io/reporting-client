@@ -77,7 +77,8 @@ var _ = Describe("Reporting client", func() {
 	// given a channel, build a function that forwards the request onto that channel
 	var requestSender = func(reportChannel chan *v1.UsageRequest) func(ctx context.Context, request *v1.UsageRequest) (*v1.UsageResponse, error) {
 		return func(ctx context.Context, request *v1.UsageRequest) (*v1.UsageResponse, error) {
-			reportChannel <- request
+			// nothing may be listening on the report channel yet, so this expression may block. Let that happen in a new goroutine
+			go func() { reportChannel <- request }()
 			return &v1.UsageResponse{}, nil
 		}
 	}

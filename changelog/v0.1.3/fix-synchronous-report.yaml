@@ -1,0 +1,4 @@
+changelog:
+  - type: FIX
+    description: Ensure initial report completes synchronously in the same goroutine as the user of the client
+    issueLink: https://github.com/solo-io/reporting-client/issues/12
