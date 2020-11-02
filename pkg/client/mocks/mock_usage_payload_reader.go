@@ -5,6 +5,7 @@
 package mocks
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -34,7 +35,7 @@ func (m *MockUsagePayloadReader) EXPECT() *MockUsagePayloadReaderMockRecorder {
 }
 
 // GetPayload mocks base method
-func (m *MockUsagePayloadReader) GetPayload() (map[string]string, error) {
+func (m *MockUsagePayloadReader) GetPayload(ctx context.Context) (map[string]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPayload")
 	ret0, _ := ret[0].(map[string]string)
@@ -43,7 +44,7 @@ func (m *MockUsagePayloadReader) GetPayload() (map[string]string, error) {
 }
 
 // GetPayload indicates an expected call of GetPayload
-func (mr *MockUsagePayloadReaderMockRecorder) GetPayload() *gomock.Call {
+func (mr *MockUsagePayloadReaderMockRecorder) GetPayload(ctx context.Context) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPayload", reflect.TypeOf((*MockUsagePayloadReader)(nil).GetPayload))
 }

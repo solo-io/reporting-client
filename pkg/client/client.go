@@ -26,7 +26,7 @@ const (
 
 // a type that knows how to load the usage payload you want to report
 type UsagePayloadReader interface {
-	GetPayload() (map[string]string, error)
+	GetPayload(ctx context.Context) (map[string]string, error)
 }
 
 type CloseableConnection interface {
@@ -150,7 +150,7 @@ func (c *client) StartReportingUsage(ctx context.Context, interval time.Duration
 type errorHandler func(ctx context.Context, err error)
 
 func (c *client) sendUsage(ctx context.Context, errorHandler errorHandler) {
-	payload, err := c.usagePayloadReader.GetPayload()
+	payload, err := c.usagePayloadReader.GetPayload(ctx)
 	if err != nil {
 		errorHandler(ctx, ErrorReadingPayload(err))
 		return

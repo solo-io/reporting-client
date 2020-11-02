@@ -16,7 +16,7 @@ type testPayloadReader struct {
 
 var _ client.UsagePayloadReader = &testPayloadReader{}
 
-func (p *testPayloadReader) GetPayload() (map[string]string, error) {
+func (p *testPayloadReader) GetPayload(ctx context.Context) (map[string]string, error) {
 	return map[string]string{}, nil
 }
 

@@ -1,0 +1,5 @@
+changelog:
+  - type: NON_USER_FACING
+    description: Add context as input of UsagePayloadReader interface's GetPayload function. Needed for gloo k8s upgrade.
+    issueLink: https://github.com/solo-io/gloo/issues/3579
+    resolvesIssue: false

@@ -26,7 +26,7 @@ type testReader struct {
 	payload map[string]string
 }
 
-func (t *testReader) GetPayload() (map[string]string, error) {
+func (t *testReader) GetPayload(ctx context.Context) (map[string]string, error) {
 	return t.payload, nil
 }
 
