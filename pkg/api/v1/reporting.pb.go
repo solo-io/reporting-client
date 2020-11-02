@@ -179,7 +179,7 @@ func (m *UsageRequest) GetInstanceMetadata() *InstanceMetadata {
 	return nil
 }
 
-func (m *UsageRequest) GetPayload() map[string]string {
+func (m *UsageRequest) GetPayload(ctx context.Context) map[string]string {
 	if m != nil {
 		return m.Payload
 	}
