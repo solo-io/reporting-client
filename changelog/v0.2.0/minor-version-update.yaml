@@ -1,4 +1,5 @@
 changelog:
   - type: NON_USER_FACING
     description: Previous change requires a minor version update, and thus needs its CL file moved.
-
+  - type: BREAKING_CHANGE
+    description: Add context to UsagePayloadReader interface's GetPayload function inputs.
